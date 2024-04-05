@@ -1,4 +1,11 @@
 # A script for loading data from docs and tf_idf realization
+# Author:
+#  _          _       ____            _ _        
+# | |   _   _| | __  / ___|___   __ _(_) |_ ___  
+# | |  | | | | |/ / | |   / _ \ / _` | | __/ _ \ 
+# | |__| |_| |   <  | |__| (_) | (_| | | || (_) |
+# |_____\__,_|_|\_\  \____\___/ \__, |_|\__\___/ 
+#                               |___/            
 
 import os
 from bs4 import BeautifulSoup

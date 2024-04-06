@@ -8,8 +8,9 @@
 #                               |___/            
 
 import os
-from bs4 import BeautifulSoup
+import re
 import spacy
+from bs4 import BeautifulSoup
 
 # Try to load en_core_web_sm model for nlp
 try:
@@ -32,18 +33,17 @@ def get_string_from_html(file_path):
 
 # Define a function for removing unnecesary tail from docs (text like "CA581203 JB March 22, 1978  8:28 PM")
 def remove_tail(text):
-    # Použij re.search() k nalezení prvního výskytu vzoru v řetězci
     # Use re.search() for finding first apperance of CA and digits code in text
     keyword_pattern = re.compile(r'CA\d{3,}')
-    keyword_match = re.search(keyword_pattern, string)
+    keyword_match = re.search(keyword_pattern, text)
     
     # If it was found
     if keyword_match:
         # Return the part of string before the apperance
-        return string[:keyword_match.start()]
+        return text[:keyword_match.start()]
     else:
         # If it wasn't give me the original string and let it go
-        return string
+        return text
 
 # Define a function for text preprocesing
 def preprocess_text(text):
@@ -53,7 +53,7 @@ def preprocess_text(text):
     # Initialize empty list for processed tokens
     preprocessed_tokens = []
 
-    # Iterrate the tokens in doc
+    # Iterrate one each token in doc
     for token in doc:
         # If it isn't stop word (a, and, the, etc.)
         if not token.is_stop:
@@ -78,26 +78,23 @@ documents = {}
 # Initialize string for a path to the directory with docs
 directory = "./documents/"
 
-# Iterate folder with documents
+# Iterrate throug folder with documents
 for filename in os.listdir(directory):
     # Make the script fool-proof and ignore possible different files in ./documents/
     if filename.endswith(".html"):
+        # Initialize the path to the doc file
+        path = directory + filename
+        # Extract text from file
+        text = get_string_from_html(path)
+        # Remove unnecessary tail from text
+        text = remove_tail(text)
+        # Tokennize and lemmatize text
+        tokens = preprocess_text(text)
         # Split the filename and extension
         filename_splitted = os.path.splitext(filename)
         # Assign filename without extention to the doc_id var
         doc_id = filename_splitted[0]
         # And add it as a key to the documents dict
-        documents[doc_id] = []
+        documents[doc_id] = tokens
 
-        ## Open and read the file in UTF8 encoding
-        #with open(directory + filename, "r", encoding="UTF8") as file:
-        #    # Iterate the html file
-        #    for i, line in enumerate(file):
-        #        # If you are on the fifth line, where the name of article is
-        #        if i == 4:
-        #            # Strip the text of the line
-        #            doc_id = line.strip()
-        #            # And add it as a key to the documents dict
-        #            documents[doc_id] = []
-        #            # Now it's time to break
-        #            break
+print(documents)

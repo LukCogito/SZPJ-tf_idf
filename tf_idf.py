@@ -57,17 +57,12 @@ def preprocess_text(text):
 
     # Iterrate one each token in doc
     for token in doc:
-        # If it isn't stop word (a, and, the, etc.) and it is alpha (nut a numerical value, special character, etc.)
+        # If it isn't stop word (a, and, the, etc.) and it is alpha (not a numerical value, special character, etc.)
         if not token.is_stop and token.is_alpha:
             # Lemmatize it
-            lemmatized_token = token.lemma_
-            if (str(lemmatized_token) not in preprocessed_tokens) and (str(lemmatized_token).lower() not in preprocessed_tokens):
-                if token.pos_ == "PROPN":
-                    # Add it's lematized version
-                    preprocessed_tokens.append(str(lemmatized_token))
-                else:
-                    # Add it's lower lemmatized version
-                    preprocessed_tokens.append(str(lemmatized_token).lower())
+            lemmatized_token = str(token.lemma_).lower()
+            if lemmatized_token not in preprocessed_tokens:
+                preprocessed_tokens.append(lemmatized_token)
 
     return preprocessed_tokens
 

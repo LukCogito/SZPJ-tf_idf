@@ -53,7 +53,6 @@ def remove_tail(text):
 def preprocess_text(text):
     # I use spaCy
     doc = nlp(text)
-
     # Initialize empty list for processed tokens
     preprocessed_tokens = []
 
@@ -63,8 +62,8 @@ def preprocess_text(text):
         if not token.is_stop and token.is_alpha:
             # Lemmatize it
             lemmatized_token = str(token.lemma_).lower()
-            if lemmatized_token not in preprocessed_tokens:
-                preprocessed_tokens.append(lemmatized_token)
+            # And append it to preprocessed tokens
+            preprocessed_tokens.append(lemmatized_token)
 
     return preprocessed_tokens
 
@@ -106,20 +105,26 @@ def get_data_from_xml(file_path):
     # And return result dict with queries
     return queries
 
+# Define a function for the magic with the tf-idf
 def do_tf_idf_magic(queries, docs, file_path):
     # Define a function for transforming the data to tf-idf vectorizer-friendly format
     def transform_data(data_dict):
+        # Prepare a list
         data_trans = []
 
+        # Iterrate over the values
         for value in data_dict.values():
+            # Join value with " " as separator
             value_trans = " ".join(value)
+            # And append it to the destination list
             data_trans.append(value_trans)
 
         return data_trans
 
+    # Transform queries
     queries_trans = transform_data(queries)
+    # Transform documents
     docs_trans = transform_data(docs)
-        
 
     # Create an instance of TfidfVectorizer
     tfidf = TfidfVectorizer()
@@ -130,27 +135,38 @@ def do_tf_idf_magic(queries, docs, file_path):
 
     # Compute cos similarity
     sim_matrix = cosine_similarity(sparse_doc_term_matrix, sparse_query_term_matrix)
-    print(sim_matrix)
 
-
+    # Prepare list for scores
     query_scores = []
+    # Convert doc keys to list (because it's more convinient for iterration)
     keys = list(docs.keys())
     
+    # Iterrate over the sim_matrix column
     for i in range(sim_matrix.shape[1]):
+        # Get similarity
         similarities = sim_matrix[:,i]
+        # Declare dict with id's and sim
         dict_id_sim = {}
+        # itarrate over the range of docs
         for j in range(len(docs)):
+            # Store the sim and the ID in dict
             dict_id_sim[keys[j]] = similarities[j]
+        # And append it to scores list
         query_scores.append(dict_id_sim)
 
+    # Sorth the query scores dictionaries
     for i in range(len(query_scores)):
+        # https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
         query_scores[i] = dict(sorted(query_scores[i].items(), key=lambda item: item[1], reverse=True))
     
+    # And output the text file
     out_text = ""
     for i, query_sims in enumerate(query_scores, 1):
+        # Filter first 100 items with highest score
         for docID, sim in list(query_sims.items())[:100]:
            out_text += f"{i}\t{docID}\t{sim}\n"
 
+    # Finally export
     with open(file_path, "w", encoding="UTF8") as file:
         file.write(out_text)
 
@@ -180,8 +196,6 @@ for filename in os.listdir(directory):
         # And add it as a key to the documents dict
         documents[doc_id] = tokens
 
-print(documents)
-
 path = "./query_devel.xml"
 queries = get_data_from_xml(path)
-print(queries)
+do_tf_idf_magic(queries, documents, "./output.txt")

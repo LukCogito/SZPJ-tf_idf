@@ -1,3 +1,6 @@
 /documents
 /test.py
-__pycache__/tf_idf.cpython-311.pyc
+/output.txt
+/query_delvel.xml
+/cacm_devel.rel
+__pycache__/tf_idf.cpython-311.pyc  

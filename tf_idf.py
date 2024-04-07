@@ -1,4 +1,4 @@
-# A script for loading data from docs and tf_idf realization
+# A script for loading data from docs, queries and tf_idf realization with ouput for each query as 100 most relevant docs
 # Author:
 #  _          _       ____            _ _        
 # | |   _   _| | __  / ___|___   __ _(_) |_ ___  
@@ -11,6 +11,8 @@ import os
 import re
 import spacy
 from bs4 import BeautifulSoup
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Try to load en_core_web_sm model for nlp
 try:
@@ -104,6 +106,54 @@ def get_data_from_xml(file_path):
     # And return result dict with queries
     return queries
 
+def do_tf_idf_magic(queries, docs, file_path):
+    # Define a function for transforming the data to tf-idf vectorizer-friendly format
+    def transform_data(data_dict):
+        data_trans = []
+
+        for value in data_dict.values():
+            value_trans = " ".join(value)
+            data_trans.append(value_trans)
+
+        return data_trans
+
+    queries_trans = transform_data(queries)
+    docs_trans = transform_data(docs)
+        
+
+    # Create an instance of TfidfVectorizer
+    tfidf = TfidfVectorizer()
+
+    # Vectorize docs and queries
+    sparse_doc_term_matrix = tfidf.fit_transform(docs_trans)
+    sparse_query_term_matrix = tfidf.transform(queries_trans)
+
+    # Compute cos similarity
+    sim_matrix = cosine_similarity(sparse_doc_term_matrix, sparse_query_term_matrix)
+    print(sim_matrix)
+
+
+    query_scores = []
+    keys = list(docs.keys())
+    
+    for i in range(sim_matrix.shape[1]):
+        similarities = sim_matrix[:,i]
+        dict_id_sim = {}
+        for j in range(len(docs)):
+            dict_id_sim[keys[j]] = similarities[j]
+        query_scores.append(dict_id_sim)
+
+    for i in range(len(query_scores)):
+        query_scores[i] = dict(sorted(query_scores[i].items(), key=lambda item: item[1], reverse=True))
+    
+    out_text = ""
+    for i, query_sims in enumerate(query_scores, 1):
+        for docID, sim in list(query_sims.items())[:100]:
+           out_text += f"{i}\t{docID}\t{sim}\n"
+
+    with open(file_path, "w", encoding="UTF8") as file:
+        file.write(out_text)
+
 
 # Initilaize dictionary for storing doc id as a key and doc keywoards list as a value
 documents = {}
@@ -111,7 +161,7 @@ documents = {}
 # Initialize string for a path to the directory with docs
 directory = "./documents/"
 
-# Iterrate throug folder with documents
+# Iterrate over the folder with documents
 for filename in os.listdir(directory):
     # Make the script fool-proof and ignore possible different files in ./documents/
     if filename.endswith(".html"):

@@ -1,4 +1,5 @@
 scikit-learn
 beautifulsoup4
 spacy
+pandas
 lxml

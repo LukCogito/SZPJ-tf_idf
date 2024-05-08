@@ -10,6 +10,7 @@
 import os
 import re
 import spacy
+import pandas as pd
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -30,8 +31,6 @@ def get_string_from_html(file_path):
         # Parse the text from html code
         soup = BeautifulSoup(file, 'html.parser')
         text = soup.get_text()
-    # Close the opened file
-    file.close()
     # Return the text as string var
     return text
 
@@ -72,8 +71,11 @@ def get_data_from_xml(file_path):
     # Read the xml file
     with open('query_devel.xml', 'r') as file:
         xml_data = file.read()
-        # Initialize list for xml docs
+        # Initialize a list for xml docs
         xml_docs = []
+
+        # Initialize a list for origin doc numbers
+        doc_numbers_origin = []
 
         # Prepare re pattern for extraction of each <DOC>content</DOC> in file
         pattern = re.compile(r'<DOC>(.*?)</DOC>', re.DOTALL)
@@ -88,25 +90,25 @@ def get_data_from_xml(file_path):
         queries = {}
 
         # Iterrate thorugh the non-processed docs
-        for doc in xml_docs:
+        for index, doc in enumerate(xml_docs):
             # Make soup out of it
             soup = BeautifulSoup(doc, "xml")
             # Extract query number
             doc_number = soup.find("DOCNO").text
             doc_number = int(doc_number)
+            # Append origin query number to a list
+            doc_numbers_origin.append(doc_number)
             # Extract query text
             doc_text = soup.find("DOC").text.strip()
             # Make tokens out of the text
             doc_tokens = preprocess_text(doc_text)
             # And fill the dict
-            queries[doc_number] = doc_tokens
-    # Cloese the file
-    file.close()
+            queries[index] = doc_tokens
     # And return result dict with queries
-    return queries
+    return queries, doc_numbers_origin
 
 # Define a function for the magic with the tf-idf
-def do_tf_idf_magic(queries, docs, file_path):
+def do_tf_idf_magic(queries, docnos, docs, file_path):
     # Define a function for transforming the data to tf-idf vectorizer-friendly format
     def transform_data(data_dict):
         # Prepare a list
@@ -135,37 +137,40 @@ def do_tf_idf_magic(queries, docs, file_path):
 
     # Compute cos similarity
     sim_matrix = cosine_similarity(sparse_doc_term_matrix, sparse_query_term_matrix)
+    
+    # Convert doc keys to list (because it's more convinient for iterration)
+    keys = list(docs.keys())
+
+    # Initialize DaraFrame where columns represent queries and rows represent docs
+    df = pd.DataFrame(sim_matrix, index=keys, columns=docnos)
 
     # Prepare list for scores
     query_scores = []
-    # Convert doc keys to list (because it's more convinient for iterration)
-    keys = list(docs.keys())
-    
-    # Iterrate over the sim_matrix column
-    for i in range(sim_matrix.shape[1]):
-        # Get similarity
-        similarities = sim_matrix[:,i]
-        # Declare dict with id's and sim
-        dict_id_sim = {}
-        # itarrate over the range of docs
-        for j in range(len(docs)):
-            # Store the sim and the ID in dict
-            dict_id_sim[keys[j]] = similarities[j]
-        # And append it to scores list
-        query_scores.append(dict_id_sim)
 
-    # Sorth the query scores dictionaries
-    for i in range(len(query_scores)):
-        # https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
-        query_scores[i] = dict(sorted(query_scores[i].items(), key=lambda item: item[1], reverse=True))
+    # Iterrate over the columns
+    for col in df:
+        # Sort the column in descending order
+        df_col_sorted = df[col].sort_values(ascending=False) # Type is series object
+        # Filter the first 100 items
+        df_col_sorted = df_col_sorted[:100]
+        # And append col to the query scores list
+        query_scores.append(df_col_sorted)
+
+    # Sort the query scores by the values - docno
+    def get_key(dict):
+        return dict.name
+    query_scores.sort(key=get_key)
     
     # And output the text file
     out_text = ""
-    for i, query_sims in enumerate(query_scores, 1):
-        # Filter first 100 items with highest score
-        for docID, sim in list(query_sims.items())[:100]:
-           out_text += f"{i}\t{docID}\t{sim}\n"
-
+    # Iterrate over the query scores list
+    for query in query_scores:
+        # For evry value of series object = doc IDs and similairity
+        for doc_id, sim in query.items():
+            # Object series has its atribute - name; in our case it is doc number (= number of column)
+            docno = query.name
+            # Add coresponding line to the out text
+            out_text += f"{docno}\t{doc_id}\t{sim}\n"
     # Finally export
     with open(file_path, "w", encoding="UTF8") as file:
         file.write(out_text)
@@ -197,5 +202,5 @@ for filename in os.listdir(directory):
         documents[doc_id] = tokens
 
 path = "./query_devel.xml"
-queries = get_data_from_xml(path)
-do_tf_idf_magic(queries, documents, "./output.txt")
+queries, docnos = get_data_from_xml(path)
+do_tf_idf_magic(queries, docnos, documents, "./output.txt")
